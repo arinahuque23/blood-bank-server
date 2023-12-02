@@ -1,7 +1,7 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
@@ -30,110 +30,109 @@ async function run() {
     const donationCollection = client.db("DonationDb").collection("donation");
     const donateCollection = client.db("DonationDb").collection("donate");
     const userCollection = client.db("DonationDb").collection("users");
-    
-      // jwt related api
-      app.post('/jwt', async (req, res) => {
-        const user = req.body;
-        console.log(req.headers.authorization);
-        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { 
-          expiresIn: '1h' });
-        res.send({ token });
-      })
 
-      
-    
-    // // middlewares 
+    // jwt related api
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      console.log(req.headers.authorization);
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
+
+    // // middlewares
     const verifyToken = (req, res, next) => {
-      console.log('inside verify token', req.headers.authorization);
+      console.log("inside verify token", req.headers.authorization);
       if (!req.headers.authorization) {
-        return res.status(401).send({ message: 'unauthorized access' });
+        return res.status(401).send({ message: "unauthorized access" });
       }
-      const token = req.headers.authorization.split(' ')[1];
+      const token = req.headers.authorization.split(" ")[1];
       jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         if (err) {
-          return res.status(401).send({ message: 'unauthorized access' })
+          return res.status(401).send({ message: "unauthorized access" });
         }
         req.decoded = decoded;
         next();
-      })
-    }
+      });
+    };
 
     //admin api
-    app.get('/users/admin/:email', verifyToken, async (req, res) => {
+    app.get("/users/admin/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
 
       if (email !== req.decoded.email) {
-        return res.status(403).send({ message: 'forbidden access' })
+        return res.status(403).send({ message: "forbidden access" });
       }
 
       const query = { email: email };
       const user = await userCollection.findOne(query);
       let admin = false;
       if (user) {
-        admin = user?.role === 'admin';
+        admin = user?.role === "admin";
       }
       res.send({ admin });
-    })
+    });
 
     //verifyadmin
 
-
-    
     // use verify admin after verifyToken
-    const verifyAdmin = async (req, res, next) => {  
+    const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
       const query = { email: email };
       const user = await userCollection.findOne(query);
-      const isAdmin = user?.role === 'admin';
+      const isAdmin = user?.role === "admin";
       if (!isAdmin) {
-        return res.status(403).send({ message: 'forbidden access' });
+        return res.status(403).send({ message: "forbidden access" });
       }
       next();
-    }
-    
+    };
+
     ///users relared api
 
-    app.get('/users', verifyToken, verifyAdmin,  async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       console.log(req.headers);
       const result = await userCollection.find().toArray();
       res.send(result);
     });
-  
 
-
-    app.post('/users', async (req, res) => {
+    app.post("/users", async (req, res) => {
       const user = req.body;
-      const query = { email: user.email }
+      const query = { email: user.email };
       const existingUser = await userCollection.findOne(query);
       if (existingUser) {
-        return res.send({ message: 'user already exists', insertedId: null })
+        return res.send({ message: "user already exists", insertedId: null });
       }
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
 
-
-    app.patch('/users/admin/:id', verifyToken, verifyAdmin,  async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          role: 'admin'
-        }
+    app.patch(
+      "/users/admin/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            role: "admin",
+          },
+        };
+        const result = await userCollection.updateOne(filter, updatedDoc);
+        res.send(result);
       }
-      const result = await userCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    });
+    );
 
-
-    app.delete('/users/:id',  verifyToken, verifyAdmin,  async (req, res) => {
+    app.delete("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
+      const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
       res.send(result);
     });
-    
-    
+
+  
+
     //donation req
 
     app.get("/donations", async (req, res) => {
@@ -148,15 +147,52 @@ async function run() {
       res.send(result);
     });
 
-    //donor related api 
+    //email
+    app.get('/donations', async(req,res)=>{
+      console.log(req.query.email);
+      let query = {};
+      if(req.query?.email){
+        query = { email: req.query.email}
+      }
+      const result = await donationCollection.find(query).toArray();
+      res.send(result)
+  })
 
-    app.get('/donors', async (req, res) => {
+    //donations post
+
+    app.post("/donations", async (req, res) => {
+      const addItem = req.body;
+      const result = await donationCollection.insertOne(addItem);
+      res.send(result);
+    });
+
+    // donations get
+app.get('/donations', async (req, res) => {
+  try {
+    const { email } = req.query;
+    let query = {};
+
+    if (email) {
+      query = { reqemail: email }; 
+    }
+
+    const result = await donationCollection.find(query).toArray();
+    res.send(result);
+  } catch (error) {
+    console.error('Error fetching donation data', error);
+    res.status(500).send({ error: 'Internal Server Error' });
+  }
+});
+
+
+    //donor related api
+
+    app.get("/donors", async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
       const result = await donateCollection.find(query).toArray();
       res.send(result);
     });
-   
 
     app.post("/donors", async (req, res) => {
       const donate = req.body;
@@ -164,6 +200,8 @@ async function run() {
       const result = await donateCollection.insertOne(donate);
       res.send(result);
     });
+
+    
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
