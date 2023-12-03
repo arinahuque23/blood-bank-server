@@ -30,6 +30,7 @@ async function run() {
     const donationCollection = client.db("DonationDb").collection("donation");
     const donateCollection = client.db("DonationDb").collection("donate");
     const userCollection = client.db("DonationDb").collection("users");
+    const blogCollection = client.db("DonationDb").collection("blog");
 
     // jwt related api
     app.post("/jwt", async (req, res) => {
@@ -90,11 +91,33 @@ async function run() {
 
     ///users relared api
 
-    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/users",  async (req, res) => {
       console.log(req.headers);
       const result = await userCollection.find().toArray();
       res.send(result);
     });
+
+    app.patch("/users/status/:id", 
+    verifyToken,
+    verifyAdmin,
+    async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          status: req.body.status,
+        },
+      };
+      const result = await userCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    }
+  );
+
+    // app.get("/users",  async (req, res) => {
+    //   console.log(req.headers);
+    //   const result = await userCollection.find().toArray();
+    //   res.send(result);
+    // });
 
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -132,6 +155,29 @@ async function run() {
     });
 
   
+    //find donation id and update
+     
+    // app.get("/donations/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const query = { _id: new ObjectId(id) };
+    //   const result = await donationCollection.findOne(query);
+    //   res.send(result);
+    // });
+
+
+    ///blog post
+    
+    app.post("/blogs", async (req, res) => {
+      const addItem = req.body;
+      const result = await blogCollection.insertOne(addItem);
+      res.send(result);
+    });
+
+    //get bblog
+    app.get("/blogs", async (req, res) => {
+      const result = await blogCollection.find().toArray();
+      res.send(result);
+    });
 
     //donation req
 
@@ -139,6 +185,39 @@ async function run() {
       const result = await donationCollection.find().toArray();
       res.send(result);
     });
+
+
+
+    //donation updated
+    app.patch('/donations/:id', async (req, res) => {
+      const item = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const updatedDoc = {
+        $set: {
+          reqname : item.reqname,
+          reqemail: item.reqemail,
+          recipient: item.recipient,
+          upazila: item.upazila,
+          district: item.district,
+          hospital: item.hospital,
+          address: item.address,
+          date: item.date,
+          time: item.time,
+          massage: item.massage
+        }
+      }
+
+      const result = await donationCollection.updateOne(filter, updatedDoc)
+      res.send(result);
+    })
+
+    app.delete('/donations/:id', verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await donationCollection.deleteOne(query);
+      res.send(result);
+    })
 
     app.get("/donations/:id", async (req, res) => {
       const id = req.params.id;
